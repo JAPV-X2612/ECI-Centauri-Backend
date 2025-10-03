@@ -1,11 +1,11 @@
 """
-User CRUD endpoints.
+User CRUD endpoints with improved error handling.
 
 This module provides RESTful API endpoints for user management
-including read, update, and delete operations.
+with clear error messages and proper HTTP status codes.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -13,69 +13,83 @@ from app.schemas.user import UserResponse, UserUpdate
 from app.services.user_service import UserService
 from app.api.v1.dependencies import get_current_user_required
 from app.models.user import User
+from app.core.exceptions import (
+    UserNotFoundException,
+    UnauthorizedAccessException,
+    EmailAlreadyExistsException
+)
 
 router = APIRouter()
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current user profile",
+    response_description="Current user information"
+)
 def get_current_user_info(current_user: User = Depends(get_current_user_required)):
     """
-    Get current authenticated user's information.
+    Get authenticated user's profile information.
 
-    Args:
-        current_user: Authenticated user from JWT token
+    **Returns:**
+    - User profile information
 
-    Returns:
-        UserResponse: Current user information
+    **Errors:**
+    - **401 Unauthorized**: Missing or invalid token
 
-    Requires:
-        Valid JWT token in Authorization header
+    **Requires:**
+    Valid JWT token in Authorization header
     """
     return current_user
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="Get user by ID",
+    response_description="User information"
+)
 def get_user(
         user_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user_required)
 ):
     """
-    Get user by ID (admin or own profile).
+    Get user information by ID.
 
-    Args:
-        user_id: User's unique identifier
-        db: Database session
-        current_user: Authenticated user
+    **Path Parameters:**
+    - **user_id**: User's unique identifier
 
-    Returns:
-        UserResponse: User information
+    **Returns:**
+    - User information
 
-    Raises:
-        HTTPException: 403 if trying to access another user's data
-        HTTPException: 404 if user not found
+    **Errors:**
+    - **401 Unauthorized**: Missing or invalid token
+    - **403 Forbidden**: Attempting to access another user's data
+    - **404 Not Found**: User does not exist
+    - **503 Service Unavailable**: Database connection error
 
-    Requires:
-        Valid JWT token
+    **Note:**
+    Users can only access their own profile information.
     """
     # Users can only access their own data
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this user"
-        )
+        raise UnauthorizedAccessException("user profile")
 
     user = UserService.get_user_by_id(db, user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise UserNotFoundException(user_id=user_id)
 
     return user
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get(
+    "/",
+    response_model=List[UserResponse],
+    summary="List all users",
+    response_description="List of users"
+)
 def list_users(
         skip: int = 0,
         limit: int = 100,
@@ -85,25 +99,29 @@ def list_users(
     """
     List all users with pagination.
 
-    Args:
-        skip: Number of records to skip (default: 0)
-        limit: Maximum number of records to return (default: 100)
-        db: Database session
-        current_user: Authenticated user
+    **Query Parameters:**
+    - **skip**: Number of records to skip (default: 0)
+    - **limit**: Maximum records to return (default: 100, max: 100)
 
-    Returns:
-        List[UserResponse]: List of users
+    **Returns:**
+    - List of users
 
-    Requires:
-        Valid JWT token
+    **Errors:**
+    - **401 Unauthorized**: Missing or invalid token
+    - **503 Service Unavailable**: Database connection error
 
-    Note:
-        For production, implement role-based access control
+    **Note:**
+    In production, implement role-based access control for this endpoint.
     """
     return UserService.get_users(db, skip=skip, limit=limit)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="Update user information",
+    response_description="Updated user information"
+)
 def update_user(
         user_id: int,
         user_data: UserUpdate,
@@ -111,65 +129,69 @@ def update_user(
         current_user: User = Depends(get_current_user_required)
 ):
     """
-    Update user information.
+    Update user profile information.
 
-    Args:
-        user_id: User's unique identifier
-        user_data: Updated user data
-        db: Database session
-        current_user: Authenticated user
+    **Path Parameters:**
+    - **user_id**: User's unique identifier
 
-    Returns:
-        UserResponse: Updated user information
+    **Request Body (all optional):**
+    - **name**: Updated name
+    - **email**: Updated email (must be unique)
+    - **password**: Updated password (min 8 characters)
 
-    Raises:
-        HTTPException: 403 if trying to update another user
-        HTTPException: 404 if user not found
-        HTTPException: 409 if email already exists
+    **Returns:**
+    - Updated user information
 
-    Requires:
-        Valid JWT token
+    **Errors:**
+    - **401 Unauthorized**: Missing or invalid token
+    - **403 Forbidden**: Attempting to update another user
+    - **404 Not Found**: User does not exist
+    - **409 Conflict**: Email already registered to another user
+    - **503 Service Unavailable**: Database connection error
+
+    **Note:**
+    Users can only update their own profile.
     """
     # Users can only update their own data
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this user"
-        )
+        raise UnauthorizedAccessException("user profile")
 
     return UserService.update_user(db, user_id, user_data)
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete user account",
+    response_description="User successfully deleted"
+)
 def delete_user(
         user_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user_required)
 ):
     """
-    Delete user account.
+    Delete user account permanently.
 
-    Args:
-        user_id: User's unique identifier
-        db: Database session
-        current_user: Authenticated user
+    **Path Parameters:**
+    - **user_id**: User's unique identifier
 
-    Returns:
-        None (204 No Content)
+    **Returns:**
+    - No content (204)
 
-    Raises:
-        HTTPException: 403 if trying to delete another user
-        HTTPException: 404 if user not found
+    **Errors:**
+    - **401 Unauthorized**: Missing or invalid token
+    - **403 Forbidden**: Attempting to delete another user
+    - **404 Not Found**: User does not exist
+    - **503 Service Unavailable**: Database connection error
 
-    Requires:
-        Valid JWT token
+    **Warning:**
+    This action is permanent and cannot be undone.
+    Users can only delete their own account.
     """
     # Users can only delete their own account
     if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this user"
-        )
+        raise UnauthorizedAccessException("user account")
 
     UserService.delete_user(db, user_id)
     return None
