@@ -40,7 +40,7 @@ jobs:
           poetry export -f requirements.txt --output requirements.txt --without-hashes
 
       - name: Upload artifact for deployment
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-app
           path: |
