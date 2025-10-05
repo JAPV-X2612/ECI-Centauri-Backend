@@ -14,7 +14,8 @@ from app.core.security import get_password_hash, verify_password
 from app.core.exceptions import (
     UserNotFoundException,
     EmailAlreadyExistsException,
-    DatabaseConnectionException
+    DatabaseConnectionException,
+    InvalidCredentialsException,
 )
 
 
@@ -228,3 +229,147 @@ class UserService:
             return user
         except DatabaseConnectionException:
             raise
+
+    @staticmethod
+    def change_password(db: Session, user_id: int, current_password: str, new_password: str) -> bool:
+        """
+        Change user password (requires current password).
+
+        Args:
+            db: Database session
+            user_id: User's unique identifier
+            current_password: Current password for verification
+            new_password: New password to set
+
+        Returns:
+            bool: True if password changed successfully
+
+        Raises:
+            UserNotFoundException: If user not found
+            InvalidCredentialsException: If current password is incorrect
+            DatabaseConnectionException: If database operation fails
+        """
+        try:
+            from app.core.exceptions import InvalidCredentialsException
+
+            db_user = UserService.get_user_by_id(db, user_id)
+            if not db_user:
+                raise UserNotFoundException(user_id=user_id)
+
+            # Verify current password
+            if not verify_password(current_password, db_user.hashed_password):
+                raise InvalidCredentialsException()
+
+            # Set new password
+            db_user.hashed_password = get_password_hash(new_password)
+
+            db.commit()
+            db.refresh(db_user)
+
+            return True
+        except (UserNotFoundException, InvalidCredentialsException):
+            raise
+        except SQLAlchemyError:
+            db.rollback()
+            raise DatabaseConnectionException()
+
+    @staticmethod
+    def generate_verification_code(db: Session, email: str) -> str:
+        """
+        Generate and store verification code for password reset.
+
+        Args:
+            db: Database session
+            email: User's email address
+
+        Returns:
+            str: 6-digit verification code
+
+        Raises:
+            UserNotFoundException: If user not found
+            DatabaseConnectionException: If database operation fails
+        """
+        try:
+            from app.models.verification_code import VerificationCode
+            from datetime import datetime, timedelta
+            import random
+
+            # Verify user exists
+            user = UserService.get_user_by_email(db, email)
+            if not user:
+                raise UserNotFoundException(email=email)
+
+            # Generate 6-digit code
+            code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+            # Create verification code (expires in 15 minutes)
+            verification_code = VerificationCode(
+                email=email,
+                code=code,
+                expires_at=datetime.utcnow() + timedelta(minutes=15)
+            )
+
+            db.add(verification_code)
+            db.commit()
+
+            return code
+        except UserNotFoundException:
+            raise
+        except SQLAlchemyError:
+            db.rollback()
+            raise DatabaseConnectionException()
+
+    @staticmethod
+    def reset_password_with_code(db: Session, email: str, code: str, new_password: str) -> bool:
+        """
+        Reset password using verification code.
+
+        Args:
+            db: Database session
+            email: User's email address
+            code: 6-digit verification code
+            new_password: New password to set
+
+        Returns:
+            bool: True if password reset successfully
+
+        Raises:
+            UserNotFoundException: If user not found
+            InvalidCredentialsException: If code is invalid or expired
+            DatabaseConnectionException: If database operation fails
+        """
+        try:
+            from app.models.verification_code import VerificationCode
+            from app.core.exceptions import InvalidCredentialsException
+            from datetime import datetime
+
+            # Verify user exists
+            user = UserService.get_user_by_email(db, email)
+            if not user:
+                raise UserNotFoundException(email=email)
+
+            # Find valid verification code
+            verification = db.query(VerificationCode).filter(
+                VerificationCode.email == email,
+                VerificationCode.code == code,
+                VerificationCode.is_used == False,
+                VerificationCode.expires_at > datetime.utcnow()
+            ).first()
+
+            if not verification:
+                raise InvalidCredentialsException()
+
+            # Mark code as used
+            verification.is_used = True
+
+            # Update password
+            user.hashed_password = get_password_hash(new_password)
+
+            db.commit()
+
+            return True
+        except (UserNotFoundException, InvalidCredentialsException):
+            raise
+        except SQLAlchemyError:
+            db.rollback()
+            raise DatabaseConnectionException()

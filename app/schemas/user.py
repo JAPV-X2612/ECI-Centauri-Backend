@@ -98,3 +98,49 @@ class TokenData(BaseModel):
         email: User's email extracted from token
     """
     email: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    """
+    Schema for password change request (authenticated user).
+
+    Attributes:
+        current_password: User's current password for verification
+        new_password: New password to set
+    """
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    Schema for password reset request (generates verification code).
+
+    Attributes:
+        email: User's email address
+    """
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """
+    Schema for password reset confirmation with code.
+
+    Attributes:
+        email: User's email address
+        verification_code: 6-digit code sent to email
+        new_password: New password to set
+    """
+    email: EmailStr
+    verification_code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class MessageResponse(BaseModel):
+    """
+    Schema for simple message responses.
+
+    Attributes:
+        message: Response message
+    """
+    message: str
