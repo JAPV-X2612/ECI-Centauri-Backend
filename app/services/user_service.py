@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional, List
 from app.models.user import User
+from app.models.verification_code import VerificationCode
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 from app.core.exceptions import (
@@ -17,6 +18,8 @@ from app.core.exceptions import (
     DatabaseConnectionException,
     InvalidCredentialsException,
 )
+from datetime import datetime, timedelta
+import random
 
 
 class UserService:
@@ -247,8 +250,6 @@ class UserService:
             DatabaseConnectionException: If database operation fails
         """
         try:
-            from app.core.exceptions import InvalidCredentialsException
-
             db_user = UserService.get_user_by_id(db, user_id)
             if not db_user:
                 raise UserNotFoundException(user_id=user_id)
@@ -287,10 +288,6 @@ class UserService:
             DatabaseConnectionException: If database operation fails
         """
         try:
-            from app.models.verification_code import VerificationCode
-            from datetime import datetime, timedelta
-            import random
-
             # Verify user exists
             user = UserService.get_user_by_email(db, email)
             if not user:
@@ -336,10 +333,6 @@ class UserService:
             DatabaseConnectionException: If database operation fails
         """
         try:
-            from app.models.verification_code import VerificationCode
-            from app.core.exceptions import InvalidCredentialsException
-            from datetime import datetime
-
             # Verify user exists
             user = UserService.get_user_by_email(db, email)
             if not user:
@@ -366,6 +359,43 @@ class UserService:
 
             return True
         except (UserNotFoundException, InvalidCredentialsException):
+            raise
+        except SQLAlchemyError:
+            db.rollback()
+            raise DatabaseConnectionException()
+
+
+    @staticmethod
+    def reset_password_simple(db: Session, email: str, new_password: str) -> bool:
+        """
+        Reset password directly with email (no verification code required).
+
+        Args:
+            db: Database session
+            email: User's email address
+            new_password: New password to set
+
+        Returns:
+            bool: True if password reset successfully
+
+        Raises:
+            UserNotFoundException: If user not found
+            DatabaseConnectionException: If database operation fails
+        """
+        try:
+            # Verify user exists
+            user = UserService.get_user_by_email(db, email)
+            if not user:
+                raise UserNotFoundException(email=email)
+
+            # Update password directly
+            user.hashed_password = get_password_hash(new_password)
+
+            db.commit()
+            db.refresh(user)
+
+            return True
+        except UserNotFoundException:
             raise
         except SQLAlchemyError:
             db.rollback()

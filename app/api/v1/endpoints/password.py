@@ -11,7 +11,8 @@ from app.schemas.user import (
     PasswordChange,
     PasswordResetRequest,
     PasswordResetConfirm,
-    MessageResponse
+    MessageResponse,
+    PasswordResetSimple,
 )
 from app.services.user_service import UserService
 from app.api.v1.dependencies import get_current_user_required
@@ -134,3 +135,40 @@ def confirm_password_reset(
     )
 
     return {"message": "Password reset successfully"}
+
+
+@router.post(
+    "/reset/simple",
+    response_model=MessageResponse,
+    summary="Reset password with email only",
+    response_description="Password reset successfully"
+)
+def reset_password_simple(
+        reset_data: PasswordResetSimple,
+        db: Session = Depends(get_db)
+):
+    """
+    Reset password directly using email (no verification code).
+
+    **Request Body:**
+    - **email**: User's email address
+    - **new_password**: New password (min 8 characters)
+
+    **Returns:**
+    - Success message
+
+    **Errors:**
+    - **404 Not Found**: Email not registered
+    - **503 Service Unavailable**: Database error
+
+    **Note:**
+    This endpoint is for demo purposes. In production, implement
+    email verification with codes or magic links.
+    """
+    UserService.reset_password_simple(
+        db,
+        reset_data.email,
+        reset_data.new_password
+    )
+
+    return {"message": "Password reset successfully. You can now sign in with your new password."}

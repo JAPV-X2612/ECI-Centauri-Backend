@@ -136,7 +136,6 @@ def update_user(
     **Request Body (all optional):**
     - **name**: Updated name
     - **email**: Updated email (must be unique)
-    - **password**: Updated password (min 8 characters)
 
     **Returns:**
     - Updated user information

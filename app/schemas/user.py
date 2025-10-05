@@ -142,3 +142,15 @@ class MessageResponse(BaseModel):
         message: Response message
     """
     message: str
+
+
+class PasswordResetSimple(BaseModel):
+    """
+    Schema for simplified password reset (no verification code).
+
+    Attributes:
+        email: User's email address
+        new_password: New password to set
+    """
+    email: EmailStr
+    new_password: str = Field(..., min_length=8, max_length=100)
