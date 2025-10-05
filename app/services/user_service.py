@@ -158,9 +158,6 @@ class UserService:
             if user_data.name:
                 db_user.name = user_data.name
 
-            if user_data.password:
-                db_user.hashed_password = get_password_hash(user_data.password)
-
             db.commit()
             db.refresh(db_user)
 

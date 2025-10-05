@@ -2,7 +2,7 @@
 
 <!-- Logo placeholder -->
 <div align="center">
-  <img src="assets/images/logo.jpg" alt="Exoplanet Detection API Logo" width="30%">
+  <img src="assets/images/eci-centauri-logo.jpg" alt="Exoplanet Detection API Logo" width="30%">
 </div>
 
 <div align="center">

@@ -16,7 +16,6 @@ from app.models.user import User
 from app.core.exceptions import (
     UserNotFoundException,
     UnauthorizedAccessException,
-    EmailAlreadyExistsException
 )
 
 router = APIRouter()

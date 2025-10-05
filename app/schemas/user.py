@@ -41,11 +41,9 @@ class UserUpdate(BaseModel):
     Attributes:
         name: Optional updated name
         email: Optional updated email
-        password: Optional updated password
     """
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
-    password: Optional[str] = Field(None, min_length=8, max_length=100)
 
 
 class UserResponse(UserBase):
