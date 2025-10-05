@@ -113,7 +113,9 @@ class UserService:
             db_user = User(
                 name=user_data.name,
                 email=user_data.email,
-                hashed_password=hashed_password
+                hashed_password=hashed_password,
+                photo_url=user_data.photo_url,
+                role=user_data.role,
             )
 
             db.add(db_user)
@@ -160,6 +162,15 @@ class UserService:
             # Update fields if provided
             if user_data.name:
                 db_user.name = user_data.name
+
+            if user_data.password:
+                db_user.hashed_password = get_password_hash(user_data.password)
+
+            if user_data.photo_url is not None:
+                db_user.photo_url = user_data.photo_url
+
+            if user_data.role is not None:
+                db_user.role = user_data.role
 
             db.commit()
             db.refresh(db_user)

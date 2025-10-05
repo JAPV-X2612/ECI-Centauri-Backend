@@ -5,7 +5,7 @@ This module defines request/response models for user-related endpoints,
 ensuring data validation and serialization.
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
 from datetime import datetime
 
@@ -17,9 +17,13 @@ class UserBase(BaseModel):
     Attributes:
         email: User's email address
         name: User's full name
+        photo_url: Optional profile photo (URL or base64)
+        role: Optional user role
     """
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=100)
+    photo_url: Optional[str] = None
+    role: Optional[str] = Field(None, max_length=50)
 
 
 class UserCreate(UserBase):
@@ -31,6 +35,14 @@ class UserCreate(UserBase):
     """
     password: str = Field(..., min_length=8, max_length=100)
 
+    @validator('photo_url')
+    def validate_photo(cls, v):
+        """Validate photo URL or base64 string."""
+        if v is not None and len(v) > 0:
+            if not (v.startswith('http://') or v.startswith('https://') or v.startswith('data:image/')):
+                raise ValueError('photo_url must be a valid URL or base64 encoded image')
+        return v
+
 
 class UserUpdate(BaseModel):
     """
@@ -41,9 +53,23 @@ class UserUpdate(BaseModel):
     Attributes:
         name: Optional updated name
         email: Optional updated email
+        password: Optional updated password
+        photo_url: Optional updated photo
+        role: Optional updated role
     """
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=8, max_length=100)
+    photo_url: Optional[str] = None
+    role: Optional[str] = Field(None, max_length=50)
+
+    @validator('photo_url')
+    def validate_photo(cls, v):
+        """Validate photo URL or base64 string."""
+        if v is not None and len(v) > 0:
+            if not (v.startswith('http://') or v.startswith('https://') or v.startswith('data:image/')):
+                raise ValueError('photo_url must be a valid URL or base64 encoded image')
+        return v
 
 
 class UserResponse(UserBase):
