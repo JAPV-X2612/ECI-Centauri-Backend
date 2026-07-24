@@ -11,7 +11,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.0+-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)
-![Azure](https://img.shields.io/badge/Azure-App_Service-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Serverless-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![Poetry](https://img.shields.io/badge/Poetry-Package_Manager-60A5FA?style=for-the-badge&logo=poetry&logoColor=white)
 
 </div>
@@ -105,13 +105,13 @@ The project follows a **layered architecture** pattern optimized for FastAPI:
 ```
 ┌────────────────────────────────────────────┐
 │             Frontend (React)               │
-│           Static Web App (Azure)           │
+│              Vercel (Static)               │
 └───────────────┬────────────────────────────┘
-                │ HTTPS (Axios)
+                │ HTTPS (Fetch)
                 ↓
 ┌────────────────────────────────────────────┐
 │         FastAPI Backend (Python)           │
-│           App Service (Azure)              │
+│         Vercel (Serverless Function)       │
 │  ┌──────────────────────────────────────┐  │
 │  │    API Layer (Routers/Endpoints)     │  │
 │  └────────────┬─────────────────────────┘  │
@@ -499,17 +499,25 @@ poetry install
 
 ## 🚢 **Deployment**
 
-### **Azure App Service**
+### **Vercel**
 
-1. **Create App Service** (Python 3.11, Linux)
-2. **Configure environment variables** in Azure Portal
-3. **Set startup command:**
+The API deploys as a Python serverless function via `vercel.json`, which routes every request to the FastAPI app defined in `app/main.py`.
+
+1. **Import the repository** at [vercel.com/new](https://vercel.com/new) — Vercel auto-detects the Python runtime from `pyproject.toml`
+2. **Configure environment variables** in Project Settings → Environment Variables:
    ```bash
-   gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 app.main:app
+   DATABASE_URL=postgresql://user:password@host:port/database_name
+   SECRET_KEY=your-secret-key-min-32-characters
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   API_V1_PREFIX=/api/v1
+   PROJECT_NAME=Exoplanet Detection API
    ```
-4. **Deploy via GitHub Actions** or Azure CLI
+3. **Push to `main`** — Vercel's GitHub integration builds and deploys automatically; no custom CI/CD workflow needed
 
-**Detailed deployment guide:** [Azure FastAPI Documentation](https://learn.microsoft.com/en-us/azure/app-service/quickstart-python)
+**Note:** the database connection pool in `app/database.py` is intentionally kept small (`pool_size=1`, `max_overflow=2`) with `pool_pre_ping` and `pool_recycle` enabled, since serverless functions spin up fresh processes per invocation and can otherwise exhaust your Postgres provider's connection limit.
+
+**Detailed deployment guide:** [Vercel Python Runtime Documentation](https://vercel.com/docs/functions/runtimes/python)
 
 ### **Docker Deployment**
 
@@ -586,7 +594,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **NASA Space Apps Challenge** for the inspiration and opportunity
 - **FastAPI** community for excellent documentation
 - **Railway** for providing database hosting
-- **Microsoft Azure** for cloud infrastructure
+- **Vercel** for serverless deployment infrastructure
 
 ---
 
